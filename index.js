@@ -25,7 +25,7 @@ function fit(str, width) {
 }
 
 module.exports = {
-	prettyDiff(one, two, { diffType = 'diffChars'}) {
+	splitdiff(one, two, { diffType = 'diffChars'}) {
 
 		if(diffType !== 'diffChars' && diffType !== 'diffLines') throw('unsupported diffType!')
 
@@ -57,9 +57,12 @@ module.exports = {
 		// draw
 		var leftLines = left.split('\n')
 		var rightLines = right.split('\n')
+		var output = ''
 
 		for(var i = 0; i < leftLines.length; i++) {
-			console.log(fit(leftLines[i], colwidth) + '  '+fit(rightLines[i], colwidth))
+			output += fit(leftLines[i], colwidth) + '  '+fit(rightLines[i], colwidth)
 		}
+
+		return output
 	}
 }
