@@ -4,7 +4,7 @@ const stripAnsi = require(`strip-ansi`)
 
 const terminalWidth = (process.stdout && process.stdout.columns) ? process.stdout.columns : 80
 
-const colwidth = Math.floor((terminalWidth - 6) / 2)
+const colwidth = Math.floor((terminalWidth - 2) / 2)
 
 function leftPad(str, width) {
 	let s = width - stripAnsi(str).length
