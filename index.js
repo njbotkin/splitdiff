@@ -4,7 +4,7 @@ const stripAnsi = require(`strip-ansi`)
 
 const terminalWidth = (process.stdout && process.stdout.columns) ? process.stdout.columns : 80
 
-const colwidth = Math.floor((terminalWidth - 2) / 2)
+const colwidth = Math.floor((terminalWidth) / 2)
 
 function leftPad(str, width) {
 	let s = width - stripAnsi(str).length
@@ -63,9 +63,73 @@ module.exports = {
 
 		const splitLines = str => str.match(/\n([^\n]*)/g) || []
 
+		diff[diffType](one, two).forEach(e => {
+			if (!e.added && !e.removed) {
+				alignLines()
+
+				for(let chars of e.value.match(/^([^\n]*)/g)) {
+					let lastLine = left[left.length-1]
+					lastLine.line = (lastLine.line ? lastLine.line : '') + chars
+
+					lastLine = right[right.length-1]
+					lastLine.line = (lastLine.line ? lastLine.line : '') + chars
+				}
+
+				for(let line of splitLines(e.value)) {
+					line = line.replace('\n', '')
+					left.push({ line, number: ++leftLineNumber })
+					right.push({ line, number: ++rightLineNumber })
+				}
+
+			}
+			if (e.removed) {
+
+				let color = diffType === 'diffChars' ? chalk.bold.red : chalk.bold.white
+
+				for(let chars of e.value.match(/^([^\n]*)/g)) {
+					let lastLine = left[left.length-1]
+					lastLine.line = (lastLine.line ? lastLine.line : '') + color(chars)
+					lastLine.changed = true
+				}
+
+				for(let line of splitLines(e.value)) {
+					line = color(line.replace('\n', ''))
+					left.push({ line, number: ++leftLineNumber, changed: !!line })
+				}
+
+			}
+			if (e.added) {
+
+				let color = diffType === 'diffChars' ? chalk.bold.green : chalk.bold.white
+
+				for(let chars of e.value.match(/^([^\n]*)/g)) {
+					let lastLine = right[right.length-1]
+					lastLine.line = (lastLine.line ? lastLine.line : '') + color(chars)
+					lastLine.changed = true
+				}
+
+				for(let line of splitLines(e.value)) {
+					line = color(line.replace('\n', ''))
+					right.push({ line, number: ++rightLineNumber, changed: !!line })
+				}
+			}
+		})
+
+		alignLines()
+
+		// draw
+		let output = []
+
+		let widestLineNumberLeft = String(leftLineNumber).length
+		let widestLineNumberRight = String(rightLineNumber).length
+		let backgrounds = [
+			chalk.bgRgb(25, 25, 25),
+			chalk.bgRgb(30, 30, 30),
+			chalk.bgRgb(15, 15, 15),
+		]
+
 		let bufferLength = 4
-		let leftTruncateBuffer = new Array(bufferLength)
-		let rightTruncateBuffer = new Array(bufferLength)
+		let truncateBuffer = new Array(bufferLength)
 
 		function pushBufferorLines(line, lineBuffer, lines) {
 
@@ -86,105 +150,49 @@ module.exports = {
 		}
 
 
-		diff[diffType](one, two).forEach(e => {
-			if (!e.added && !e.removed) {
-				alignLines()
-
-				for(let chars of e.value.match(/^([^\n]*)/g)) {
-					let lastLine = left[left.length-1]
-					lastLine.line = (lastLine.line ? lastLine.line : '') + chars
-
-					lastLine = right[right.length-1]
-					lastLine.line = (lastLine.line ? lastLine.line : '') + chars
-				}
-
-				for(let line of splitLines(e.value)) {
-					line = line.replace('\n', '')
-					pushBufferorLines({ line, number: ++leftLineNumber }, leftTruncateBuffer, left)
-					pushBufferorLines({ line, number: ++rightLineNumber }, rightTruncateBuffer, right)
-				}
-
-			}
-			if (e.removed) {
-
-				let bufferResults = emptyBuffer(leftTruncateBuffer)
-				if(bufferResults.length > 0) left.push({endTruncation: true})
-				left = left.concat(bufferResults)
-
-				for(let chars of e.value.match(/^([^\n]*)/g)) {
-					let lastLine = left[left.length-1]
-					lastLine.line = (lastLine.line ? lastLine.line : '') + chalk.bold.red(chars)
-				}
-
-				for(let line of splitLines(e.value)) {
-					line = chalk.bold.red(line.replace('\n', ''))
-					left.push({ line, number: ++leftLineNumber })
-				}
-
-			}
-			if (e.added) {
-
-				let bufferResults = emptyBuffer(rightTruncateBuffer)
-				if(bufferResults.length > 0) right.push({endTruncation: true})
-				right = right.concat(bufferResults)
-
-				for(let chars of e.value.match(/^([^\n]*)/g)) {
-					let lastLine = right[right.length-1]
-					lastLine.line = (lastLine.line ? lastLine.line : '') + chalk.bold.green(chars)
-				}
-
-				for(let line of splitLines(e.value)) {
-					line = chalk.bold.green(line.replace('\n', ''))
-					right.push({ line, number: ++rightLineNumber })
-				}
-			}
-		})
-
-		alignLines()
-
-		// draw
-		let output = ``
-
-		let widestLineNumberLeft = String(leftLineNumber).length
-		let widestLineNumberRight = String(rightLineNumber).length
-		let backgrounds = [
-			chalk.bgRgb(25, 25, 25),
-			chalk.bgRgb(30, 30, 30),
-			chalk.bgRgb(15, 15, 15),
-		]
-
 		for (let i = 0; i < left.length; i++) {
 			let leftString, rightString
 
-			// truncation?
-			if(left[i].endTruncation) {
-				leftString = backgrounds[2](fit(' ... ', colwidth))
-			} 
 			// padding?
-			else if(!(left[i].number && left[i].number > 0)) {
+			if(!(left[i].number && left[i].number > 0)) {
 				leftString = backgrounds[2](fit(left[i].line ? left[i].line : '', colwidth))
 			} 
 			else {
-				let leftLineNumber = chalk.grey(leftPad(String(left[i].number), widestLineNumberLeft))
-				leftString = backgrounds[i%2](fit(backgrounds[2]('  ' + leftLineNumber + '  ') + left[i].line, colwidth))
+				let leftLineNumber = leftPad(String(left[i].number), widestLineNumberLeft)
+				if(left[i].changed) {
+					leftString = chalk.bgRgb(70, 0, 0)(fit(chalk.bgRgb(50, 0, 0)('  ' + chalk.white(leftLineNumber) + '  ') + left[i].line, colwidth))
+				} else {
+					leftString = backgrounds[0](fit(backgrounds[2]('  ' + chalk.grey(leftLineNumber) + '  ') + left[i].line, colwidth))
+				}
 			}
 
-			// truncation?
-			if(right[i].endTruncation) {
-				rightString = backgrounds[2](fit(' ... ', colwidth))
-			} 
 			// padding?
-			else if(!(right[i].number && right[i].number > 0)) {
+			if(!(right[i].number && right[i].number > 0)) {
 				rightString = backgrounds[2](fit(right[i].line ? right[i].line : '', colwidth))
 			} 
 			else {
 				let rightLineNumber = chalk.grey(leftPad(String(right[i].number), widestLineNumberRight))
-				rightString = backgrounds[i%2](fit(backgrounds[2]('  ' + rightLineNumber + '  ') + right[i].line, colwidth))
+				if(right[i].changed) {
+					rightString = chalk.bgRgb(0, 70, 0)(fit(chalk.bgRgb(0, 50, 0)('  ' + chalk.white(rightLineNumber) + '  ') + right[i].line, colwidth))
+				} else {
+					rightString = backgrounds[0](fit(backgrounds[2]('  ' + chalk.grey(rightLineNumber) + '  ') + right[i].line, colwidth))
+				}
 			}
 
-			output += leftString + '  ' + rightString + '\n'
+			let combined = leftString + rightString
+
+			if(!left[i].changed && !right[i].changed) {
+				pushBufferorLines(combined, truncateBuffer, output)
+			} else {
+				let bufferResults = emptyBuffer(truncateBuffer)
+				if(bufferResults.length > 0) output.push(' ... ')
+				output = output.concat(bufferResults)
+
+				output.push(combined)
+			}
+
 		}
 
-		return output
+		return output.join('\n')
 	},
 }
