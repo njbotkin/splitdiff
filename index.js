@@ -61,7 +61,7 @@ module.exports = {
 		let left = [{ line: '', number: ++leftLineNumber }]
 		let right = [{ line: '', number: ++rightLineNumber }]
 
-		const splitLines = str => str.match(/\n([^\n]*)/g)
+		const splitLines = str => str.match(/\n([^\n]*)/g) || []
 
 		diff[diffType](one, two).forEach(e => {
 			if (!e.added && !e.removed) {
@@ -94,15 +94,6 @@ module.exports = {
 					left.push({ line, number: ++leftLineNumber })
 				}
 
-/*				if(numBreaks(e.value) > 0) {
-					for(let line of e.value.split('\n')) {
-						left.push({ line: chalk.bold.red(line), number: ++leftLineNumber })
-					}
-				}
-				else {
-					let lastLine = left[left.length-1]
-					lastLine.line = (lastLine.line ? lastLine.line : '') + e.value
-				}*/
 			}
 			if (e.added) {
 				for(let chars of e.value.match(/^([^\n]*)/g)) {
@@ -126,15 +117,31 @@ module.exports = {
 		let widestLineNumberRight = String(rightLineNumber).length
 		let backgrounds = [
 			chalk.bgRgb(25, 25, 25),
-			chalk.bgRgb(30, 30, 30)
+			chalk.bgRgb(30, 30, 30),
+			chalk.bgRgb(15, 15, 15),
 		]
 
 		for (let i = 0; i < left.length; i++) {
-			output += backgrounds[i%2](
-				fit((left[i].number && left[i].number > 0 ? chalk.grey(leftPad(String(left[i].number), widestLineNumberLeft)) : '') + '  ' + (left[i].line ? left[i].line : ''), colwidth) + 
-				`  ` + 
-				fit((right[i].number && right[i].number > 0 ? chalk.grey(leftPad(String(right[i].number), widestLineNumberRight)) : '') + '  ' + (right[i].line ? right[i].line : ''), colwidth) + `\n`
-			)
+			let leftPadding = !(left[i].number && left[i].number > 0)
+			let rightPadding = !(right[i].number && right[i].number > 0)
+
+			let leftString, rightString
+
+			if(leftPadding) {
+				leftString = backgrounds[2](fit(left[i].line ? left[i].line : '', colwidth))
+			} else {
+				let leftLineNumber = chalk.grey(leftPad(String(left[i].number), widestLineNumberLeft))
+				leftString = backgrounds[i%2](fit(leftLineNumber + '  ' + left[i].line, colwidth))
+			}
+
+			if(rightPadding) {
+				rightString = backgrounds[2](fit(right[i].line ? right[i].line : '', colwidth))
+			} else {
+				let rightLineNumber = chalk.grey(leftPad(String(right[i].number), widestLineNumberRight))
+				rightString = backgrounds[i%2](fit(rightLineNumber + '  ' + right[i].line, colwidth))
+			}
+
+			output += leftString + '  ' + rightString + '\n'
 		}
 
 		return output
