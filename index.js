@@ -6,16 +6,17 @@ const terminalWidth = (process.stdout && process.stdout.columns) ? process.stdou
 
 const colwidth = Math.floor((terminalWidth) / 2)
 
-function leftPad(str, width) {
-	let s = width - stripAnsi(str).length
-	for (s; s > 1; s--) {
-		str = ` ` + str
-	}
-	return str
+function repeatChar(char, times) {
+	let ret = ''
+	while(--times > 0) ret += char
+	return ret
 }
 
+const leftPad = (str, width) => repeatChar(' ', width - stripAnsi(str).length) + str
+const rightPad = (str, width) => str + repeatChar(' ', width - stripAnsi(str).length)
+
 function fit(str, width) {
-	let strProcessed = ``
+	let strProcessed
 	const center = width / 2
 
 	str = str.replace(/\t/g, '    ')
@@ -26,12 +27,7 @@ function fit(str, width) {
 		const remove = str.substr(center, overflow)
 		strProcessed = str.replace(remove, `…`)
 	} else {
-		// right-pad
-		strProcessed = str
-		let s = width - stripAnsi(str).length
-		for (s; s > 0; s--) {
-			strProcessed += ` `
-		}
+		strProcessed = rightPad(str, width)
 	}
 	return strProcessed
 }
@@ -122,11 +118,9 @@ module.exports = {
 
 		let widestLineNumberLeft = String(leftLineNumber).length
 		let widestLineNumberRight = String(rightLineNumber).length
-		let backgrounds = [
-			chalk.bgRgb(25, 25, 25),
-			chalk.bgRgb(30, 30, 30),
-			chalk.bgRgb(15, 15, 15),
-		]
+
+		let lineBackground = chalk.bgRgb(25, 25, 25)
+		let fileBackground = chalk.bgRgb(15, 15, 15)
 
 		let bufferLength = 4
 		let truncateBuffer = new Array(bufferLength)
@@ -155,39 +149,43 @@ module.exports = {
 
 			// padding?
 			if(!(left[i].number && left[i].number > 0)) {
-				leftString = backgrounds[2](fit(left[i].line ? left[i].line : '', colwidth))
+				leftString = fileBackground(fit(left[i].line ? left[i].line : '', colwidth))
 			} 
 			else {
 				let leftLineNumber = leftPad(String(left[i].number), widestLineNumberLeft)
 				if(left[i].changed) {
 					leftString = chalk.bgRgb(70, 0, 0)(fit(chalk.bgRgb(50, 0, 0)('  ' + chalk.white(leftLineNumber) + '  ') + left[i].line, colwidth))
 				} else {
-					leftString = backgrounds[0](fit(backgrounds[2]('  ' + chalk.grey(leftLineNumber) + '  ') + left[i].line, colwidth))
+					leftString = lineBackground(fit(fileBackground('  ' + chalk.grey(leftLineNumber) + '  ') + left[i].line, colwidth))
 				}
 			}
 
 			// padding?
 			if(!(right[i].number && right[i].number > 0)) {
-				rightString = backgrounds[2](fit(right[i].line ? right[i].line : '', colwidth))
+				rightString = fileBackground(fit(right[i].line ? right[i].line : '', colwidth))
 			} 
 			else {
 				let rightLineNumber = chalk.grey(leftPad(String(right[i].number), widestLineNumberRight))
 				if(right[i].changed) {
 					rightString = chalk.bgRgb(0, 70, 0)(fit(chalk.bgRgb(0, 50, 0)('  ' + chalk.white(rightLineNumber) + '  ') + right[i].line, colwidth))
 				} else {
-					rightString = backgrounds[0](fit(backgrounds[2]('  ' + chalk.grey(rightLineNumber) + '  ') + right[i].line, colwidth))
+					rightString = lineBackground(fit(fileBackground('  ' + chalk.grey(rightLineNumber) + '  ') + right[i].line, colwidth))
 				}
 			}
 
 			let combined = leftString + rightString
 
-			if(!left[i].changed && !right[i].changed) {
-				pushBufferorLines(combined, truncateBuffer, output)
-			} else {
-				let bufferResults = emptyBuffer(truncateBuffer)
-				if(bufferResults.length > 0) output.push(' ... ')
-				output = output.concat(bufferResults)
+			if(truncate) {
+				if(!left[i].changed && !right[i].changed) {
+					pushBufferorLines(combined, truncateBuffer, output)
+				} else {
+					let bufferResults = emptyBuffer(truncateBuffer)
+					if(bufferResults.length > 0) output.push(fileBackground(fit(leftPad('......', (colwidth/2)-3), colwidth) + fit(leftPad('......', (colwidth/2)-3), colwidth)))
+					output = output.concat(bufferResults)
 
+					output.push(combined)
+				}
+			} else {
 				output.push(combined)
 			}
 
