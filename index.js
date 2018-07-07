@@ -8,7 +8,7 @@ const colwidth = Math.floor((terminalWidth - 2) / 2)
 
 function leftPad(str, width) {
 	let s = width - stripAnsi(str).length
-	for (s; s > 0; s--) {
+	for (s; s > 1; s--) {
 		str = ` ` + str
 	}
 	return str
@@ -37,7 +37,7 @@ function fit(str, width) {
 }
 
 module.exports = {
-	splitdiff(one, two, { diffType = `diffChars`, lineNumbers = false, lineOffset = 0 } = {}) {
+	splitdiff(one, two, { diffType = `diffChars`, lineNumbers = false, lineOffset = 0, truncate = true } = {}) {
 		if (diffType !== `diffChars` && diffType !== `diffLines`) {
 			throw (`unsupported diffType!`)
 		}
@@ -63,6 +63,29 @@ module.exports = {
 
 		const splitLines = str => str.match(/\n([^\n]*)/g) || []
 
+		let bufferLength = 4
+		let leftTruncateBuffer = new Array(bufferLength)
+		let rightTruncateBuffer = new Array(bufferLength)
+
+		function pushBufferorLines(line, lineBuffer, lines) {
+
+			if(lineBuffer.length < bufferLength) {
+				lines.push(line)
+			}
+			lineBuffer.push(line)
+
+			if(lineBuffer.length > bufferLength*2) { 
+				lineBuffer.splice(0, 1)
+			} 
+		}
+
+		function emptyBuffer(lineBuffer) {
+			let ret = lineBuffer.splice(bufferLength, bufferLength)
+			lineBuffer.splice(0)
+			return ret
+		}
+
+
 		diff[diffType](one, two).forEach(e => {
 			if (!e.added && !e.removed) {
 				alignLines()
@@ -77,12 +100,16 @@ module.exports = {
 
 				for(let line of splitLines(e.value)) {
 					line = line.replace('\n', '')
-					left.push({ line, number: ++leftLineNumber })
-					right.push({ line, number: ++rightLineNumber })
+					pushBufferorLines({ line, number: ++leftLineNumber }, leftTruncateBuffer, left)
+					pushBufferorLines({ line, number: ++rightLineNumber }, rightTruncateBuffer, right)
 				}
 
 			}
 			if (e.removed) {
+
+				let bufferResults = emptyBuffer(leftTruncateBuffer)
+				if(bufferResults.length > 0) left.push({endTruncation: true})
+				left = left.concat(bufferResults)
 
 				for(let chars of e.value.match(/^([^\n]*)/g)) {
 					let lastLine = left[left.length-1]
@@ -96,6 +123,11 @@ module.exports = {
 
 			}
 			if (e.added) {
+
+				let bufferResults = emptyBuffer(rightTruncateBuffer)
+				if(bufferResults.length > 0) right.push({endTruncation: true})
+				right = right.concat(bufferResults)
+
 				for(let chars of e.value.match(/^([^\n]*)/g)) {
 					let lastLine = right[right.length-1]
 					lastLine.line = (lastLine.line ? lastLine.line : '') + chalk.bold.green(chars)
@@ -122,23 +154,32 @@ module.exports = {
 		]
 
 		for (let i = 0; i < left.length; i++) {
-			let leftPadding = !(left[i].number && left[i].number > 0)
-			let rightPadding = !(right[i].number && right[i].number > 0)
-
 			let leftString, rightString
 
-			if(leftPadding) {
+			// truncation?
+			if(left[i].endTruncation) {
+				leftString = backgrounds[2](fit(' ... ', colwidth))
+			} 
+			// padding?
+			else if(!(left[i].number && left[i].number > 0)) {
 				leftString = backgrounds[2](fit(left[i].line ? left[i].line : '', colwidth))
-			} else {
+			} 
+			else {
 				let leftLineNumber = chalk.grey(leftPad(String(left[i].number), widestLineNumberLeft))
-				leftString = backgrounds[i%2](fit(leftLineNumber + '  ' + left[i].line, colwidth))
+				leftString = backgrounds[i%2](fit(backgrounds[2]('  ' + leftLineNumber + '  ') + left[i].line, colwidth))
 			}
 
-			if(rightPadding) {
+			// truncation?
+			if(right[i].endTruncation) {
+				rightString = backgrounds[2](fit(' ... ', colwidth))
+			} 
+			// padding?
+			else if(!(right[i].number && right[i].number > 0)) {
 				rightString = backgrounds[2](fit(right[i].line ? right[i].line : '', colwidth))
-			} else {
+			} 
+			else {
 				let rightLineNumber = chalk.grey(leftPad(String(right[i].number), widestLineNumberRight))
-				rightString = backgrounds[i%2](fit(rightLineNumber + '  ' + right[i].line, colwidth))
+				rightString = backgrounds[i%2](fit(backgrounds[2]('  ' + rightLineNumber + '  ') + right[i].line, colwidth))
 			}
 
 			output += leftString + '  ' + rightString + '\n'
