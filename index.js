@@ -96,11 +96,11 @@ module.exports = {
 			let curLineLeft = -lineOffset
 			let curLineRight = -lineOffset
 
-			function sanctionRange(side, line) {
-				let startLine = Math.max(-lineOffset, line - 4)
-				let endLine = Math.min(line + 4, side.lineLength)
+			function sanctionRange(side, start, end) {
+				start = Math.max(-lineOffset, start - 4)
+				end = Math.min(end + 4, side.lineLength)
 
-				while(startLine <= endLine) side.sanctioned[startLine++] = true
+				while(start <= end) side.sanctioned[start++] = true
 			}
 
 			function sanctionOffset(side) {
@@ -122,12 +122,10 @@ module.exports = {
 					curLineRight += sourceLines.length
 				}
 				if(e.removed) {
-					curLineLeft += sourceLines.length 
-					if(curLineLeft > 0) sanctionRange(left, curLineLeft)
+					if(curLineLeft > 0) sanctionRange(left, curLineLeft, curLineLeft += sourceLines.length )
 				}
 				if(e.added) {
-					curLineRight += sourceLines.length 
-					if(curLineRight > 0) sanctionRange(right, curLineRight)
+					if(curLineRight > 0) sanctionRange(right, curLineRight, curLineRight += sourceLines.length )
 				}
 			}
 		}
