@@ -183,8 +183,7 @@ module.exports = {
 		let output = []
 
 		for(let i = 0; i < left.outputLines.length; i++) {
-			let combined = left.outputLines[i] + right.outputLines[i]
-			output.push(combined)
+			output.push(left.outputLines[i] + right.outputLines[i])
 		}
 
 		return output.join('\n')
