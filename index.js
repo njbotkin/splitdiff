@@ -29,12 +29,16 @@ class Pair {
 			this.left.padLines(-misalignmentDelta)
 		}
 	}
+	padLines(n) {
+		this.left.padLines(n)
+		this.right.padLines(n)
+	}
 	drawLines() {
 		this.left.drawLine()
 		this.right.drawLine()
 	}
 	combine() {
-		this.drawLines()
+		// this.drawLines()
 
 		if(this.left.sanctioned && this.left.sanctioned.length > 0 && !this.left.sanctioned[this.left.lineLength]) this.left.ellipses()
 		if(this.right.sanctioned && this.right.sanctioned.length > 0 && !this.right.sanctioned[this.right.lineLength]) this.right.ellipses()
@@ -255,8 +259,7 @@ module.exports = {
 			)
 
 			pair.drawLines()
-			pair.left.currentSourceLine = ''
-			pair.right.currentSourceLine = ''
+			pair.padLines(1)
 			output.push(pair.combine())
 
 			for(let hunk of patch.hunks) {
@@ -285,8 +288,7 @@ module.exports = {
 						pair.align()
 						pair.left.currentSourceLine = line
 						pair.right.currentSourceLine = line
-						pair.left.drawLine()
-						pair.right.drawLine()
+						pair.drawLines()
 					}
 
 					if(symbol === '-') {

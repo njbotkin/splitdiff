@@ -5,8 +5,6 @@ const cli = require(`commander`)
 
 const { readFileSync } = require('fs')
 
-
-
 async function main() {
 
 	cli
@@ -17,7 +15,7 @@ async function main() {
 			console.log(`  Example:`)
 			console.log(``)
 			console.log(`    $ splitdiff file1 file2`)
-			console.log(`    $ git diff file1 file2 | splitdiff`)
+			console.log(`    $ git diff --no-pager file1 file2 | splitdiff`)
 			console.log(``)
 		})
 		.parse(process.argv)
