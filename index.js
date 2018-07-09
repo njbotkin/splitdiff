@@ -3,8 +3,8 @@ const chalk = require(`chalk`)
 const stripAnsi = require(`strip-ansi`)
 
 const terminalWidth = (process.stdout && process.stdout.columns) ? process.stdout.columns : 80
-
 const colwidth = Math.floor((terminalWidth) / 2)
+const bgColor = chalk.bgRgb(15, 15, 15)
 
 function repeatChar(char, times) {
 	let ret = ''
@@ -15,82 +15,151 @@ function repeatChar(char, times) {
 const leftPad = (str, width) => repeatChar(' ', width - stripAnsi(str).length) + str
 const rightPad = (str, width) => str + repeatChar(' ', width - stripAnsi(str).length)
 
+class Pair {
+	constructor(left, right) {
+		this.left = left
+		this.right = right
+	}
+	align() {
+		let misalignmentDelta = this.left.outputLines.length - this.right.outputLines.length
+		if(misalignmentDelta > 0) {
+			this.right.padLines(misalignmentDelta)
+		}
+		if(misalignmentDelta < 0) {
+			this.left.padLines(-misalignmentDelta)
+		}
+	}
+	drawLines() {
+		this.left.drawLine()
+		this.right.drawLine()
+	}
+	combine() {
+		this.drawLines()
+
+		if(this.left.sanctioned && this.left.sanctioned.length > 0 && !this.left.sanctioned[this.left.lineLength]) this.left.ellipses()
+		if(this.right.sanctioned && this.right.sanctioned.length > 0 && !this.right.sanctioned[this.right.lineLength]) this.right.ellipses()
+
+		this.align()
+		let output = []
+		for(let i = 0; i < this.left.outputLines.length; i++) {
+			output.push(this.left.outputLines[i] + this.right.outputLines[i])
+		}
+		return output.join('\n')
+	}
+}
+
+class Side {
+	constructor(args) {
+		Object.assign(this, Object.assign({
+			currentSourceLine: '',
+			outputLines: []
+		}, args))
+		this.gutterWidth = 0
+		this.wrapWidth = colwidth
+	}
+	ellipses() {
+		this.outputLines.push(bgColor( repeatChar(' ', this.gutterWidth) + rightPad(leftPad('...', this.wrapWidth/2 + 1), this.wrapWidth)))
+	}
+	padLines(number) {
+		while(number-- > 0) this.outputLines.push(bgColor(repeatChar(' ', colwidth)))
+	}
+	drawLine() {
+
+		let sourceLine = this.currentSourceLine
+		let emptyLine = (sourceLine.length === 0)
+		let outputLine = ''
+
+		while(stripAnsi(sourceLine).length > 0 || emptyLine === true) {
+
+			emptyLine = false
+			let ansiDifference = (sourceLine.length - stripAnsi(sourceLine).length) / 2
+
+			outputLine += bgColor(rightPad(sourceLine.slice(0, this.wrapWidth + ansiDifference), this.wrapWidth))
+			this.outputLines.push(outputLine)
+
+			sourceLine = sourceLine.slice(this.wrapWidth + ansiDifference)
+			outputLine = ''
+
+		}
+	}
+}
+
+class SideLines extends Side {
+	constructor(args) {
+		super()
+		Object.assign(this, Object.assign({
+			lineLength: 0,
+			currentLineNumber: 0,
+			changedLineColor: chalk.bgRgb(70, 70, 70),
+			changedLineNumberColor: chalk.bgRgb(50, 50, 50),
+			sanctioned: []
+		}, args))
+		this.lineNumberWidth = String(this.lineLength).length
+		this.gutterWidth = this.lineNumberWidth + 4
+		this.wrapWidth = colwidth - this.gutterWidth
+	}
+	drawLine(changed = false) {
+
+		this.currentLineNumber++
+
+		if(this.sanctioned.length > 0) {
+			if(!this.sanctioned[this.currentLineNumber]) return
+
+			if(this.sanctioned[this.currentLineNumber] && !this.sanctioned[this.currentLineNumber-1]) {
+				this.ellipses()
+			}
+		}
+
+		let sourceLine = this.currentSourceLine
+		let emptyLine = (sourceLine.length === 0)
+		let lineNumber = this.currentLineNumber > 0 ? this.currentLineNumber : ''
+
+		let lineNumberBackground = lineNumber ? (changed ? this.changedLineNumberColor : bgColor) : bgColor
+		let lineBackground = lineNumber ? (changed ? this.changedLineColor : chalk.bgRgb(25, 25, 25)) : bgColor
+		let lineColor = changed ? chalk.white : chalk.grey
+
+		let outputLine = lineNumberBackground('  ' + leftPad(lineColor(String(lineNumber)), this.lineNumberWidth) + '  ')
+
+		while(stripAnsi(sourceLine).length > 0 || emptyLine === true) {
+
+			emptyLine = false
+			let ansiDifference = (sourceLine.length - stripAnsi(sourceLine).length) / 2
+
+			outputLine += lineBackground(rightPad(sourceLine.slice(0, this.wrapWidth + ansiDifference), this.wrapWidth))
+
+			this.outputLines.push(outputLine)
+
+			sourceLine = sourceLine.slice(this.wrapWidth + ansiDifference)
+			outputLine = lineNumberBackground(repeatChar(' ', this.gutterWidth))
+
+		}
+	}
+}
+
+
 module.exports = {
-	splitdiff(one, two, { diffType = `diffLines`, lineNumbers = false, lineOffset = 0, truncate = true } = {}) {
+	splitDiffStrings(one, two, { diffType = `diffLines`, lineNumbers = false, lineOffset = 0, truncate = true } = {}) {
 		if (/*diffType !== `diffChars` && */diffType !== `diffLines`) {
 			throw (`unsupported diffType!`)
 		}
 
-		let left = {
-			lineLength: one.split('\n').length,
-			currentLineNumber: -lineOffset,
-			currentSourceLine: '',
-			outputLines: [],
-			changedLineColor: chalk.bgRgb(70, 0, 0),
-			changedLineNumberColor: chalk.bgRgb(50, 0, 0),
-			sanctioned: []
-		}
-		left.lineNumberWidth = String(left.lineLength).length
-		left.gutterWidth = left.lineNumberWidth + 4
-		left.wrapWidth = colwidth - left.gutterWidth
-
-		let right = {
-			lineLength: two.split('\n').length,
-			currentLineNumber: -lineOffset,
-			currentSourceLine: '',
-			outputLines: [],
-			changedLineColor: chalk.bgRgb(0, 70, 0),
-			changedLineNumberColor: chalk.bgRgb(0, 50, 0),
-			sanctioned: []
-		}
-		right.lineNumberWidth = String(right.lineLength).length
-		right.gutterWidth = right.lineNumberWidth + 4
-		right.wrapWidth = colwidth - right.gutterWidth
-
-		let bgColor = chalk.bgRgb(15, 15, 15)
-
-		function drawLine(side, changed = false) {
-
-			side.currentLineNumber++
-
-			if(truncate) {
-				if(!side.sanctioned[side.currentLineNumber]) return
-
-				if(side.sanctioned[side.currentLineNumber] && !side.sanctioned[side.currentLineNumber-1]) {
-					side.outputLines.push(bgColor( repeatChar(' ', side.gutterWidth) + rightPad(leftPad('...', side.wrapWidth/2 + 1), side.wrapWidth)))
-				}
-			}
-
-			let sourceLine = side.currentSourceLine
-			let emptyLine = (sourceLine.length === 0)
-			let lineNumber = side.currentLineNumber > 0 ? side.currentLineNumber : ''
-
-			let lineNumberBackground = lineNumber ? (changed ? side.changedLineNumberColor : bgColor) : bgColor
-			let lineBackground = lineNumber ? (changed ? side.changedLineColor : chalk.bgRgb(25, 25, 25)) : bgColor
-			let lineColor = changed ? chalk.white : chalk.grey
-
-			let outputLine = lineNumberBackground('  ' + leftPad(lineColor(String(lineNumber)), side.lineNumberWidth) + '  ')
-
-			while(stripAnsi(sourceLine).length > 0 || emptyLine === true) {
-
-				emptyLine = false
-				let ansiDifference = (sourceLine.length - stripAnsi(sourceLine).length) / 2
-
-				outputLine += lineBackground(rightPad(sourceLine.slice(0, side.wrapWidth + ansiDifference), side.wrapWidth))
-
-				side.outputLines.push(outputLine)
-
-				sourceLine = sourceLine.slice(side.wrapWidth + ansiDifference)
-				outputLine = lineNumberBackground(repeatChar(' ', side.gutterWidth))
-
-			}
-		}
-
-		function padLines(side, number) {
-			while(number-- > 0) side.outputLines.push(bgColor(repeatChar(' ', colwidth)))
-		}
-
 		let theDiff = diff[diffType](one, two)
+
+		let pair = new Pair(
+			new SideLines({
+				lineLength: one.split('\n').length,
+				currentLineNumber: -lineOffset,
+				changedLineColor: chalk.bgRgb(70, 0, 0),
+				changedLineNumberColor: chalk.bgRgb(50, 0, 0)
+			}),
+			new SideLines({
+				lineLength: two.split('\n').length,
+				currentLineNumber: -lineOffset,
+				changedLineColor: chalk.bgRgb(0, 70, 0),
+				changedLineNumberColor: chalk.bgRgb(0, 50, 0),
+			})
+		)
+
 
 		if(truncate) {
 			let curLineLeft = -lineOffset
@@ -108,8 +177,8 @@ module.exports = {
 				while(line < 0) side.sanctioned[line++] = true
 			}
 
-			sanctionOffset(left)
-			sanctionOffset(right)
+			sanctionOffset(pair.left)
+			sanctionOffset(pair.right)
 
 			// "sanctioned" lines to be shown
 			for(let e of theDiff) {
@@ -122,10 +191,10 @@ module.exports = {
 					curLineRight += sourceLines.length
 				}
 				if(e.removed) {
-					if(curLineLeft > 0) sanctionRange(left, curLineLeft, curLineLeft += sourceLines.length )
+					if(curLineLeft > 0) sanctionRange(pair.left, curLineLeft, curLineLeft += sourceLines.length )
 				}
 				if(e.added) {
-					if(curLineRight > 0) sanctionRange(right, curLineRight, curLineRight += sourceLines.length )
+					if(curLineRight > 0) sanctionRange(pair.right, curLineRight, curLineRight += sourceLines.length )
 				}
 			}
 		}
@@ -137,54 +206,107 @@ module.exports = {
 			let firstChars = sourceLines.shift()
 
 			if(!e.removed && !e.added) {
-				let misalignmentDelta = left.outputLines.length - right.outputLines.length
-				if(misalignmentDelta > 0) {
-					padLines(right, misalignmentDelta)
-				}
-				if(misalignmentDelta < 0) {
-					padLines(left, -misalignmentDelta)
-				}
 
-				left.currentSourceLine += firstChars
-				right.currentSourceLine += firstChars
+				pair.align()
+
+				pair.left.currentSourceLine += firstChars
+				pair.right.currentSourceLine += firstChars
 
 				for(let sourceLine of sourceLines) {
-					drawLine(left)
-					drawLine(right)
+					pair.left.drawLine()
+					pair.right.drawLine()
 
-					left.currentSourceLine = sourceLine
-					right.currentSourceLine = sourceLine
+					pair.left.currentSourceLine = sourceLine
+					pair.right.currentSourceLine = sourceLine
 				}
 			}
 
 			if(e.removed) {
-				left.currentSourceLine += firstChars
+				pair.left.currentSourceLine += firstChars
 
 				for(let sourceLine of sourceLines) {
-					drawLine(left, true)
-					left.currentSourceLine = sourceLine
+					pair.left.drawLine(true)
+					pair.left.currentSourceLine = sourceLine
 				}
 			}
 
 			if(e.added) {
-				right.currentSourceLine += firstChars
+				pair.right.currentSourceLine += firstChars
 
 				for(let sourceLine of sourceLines) {
-					drawLine(right, true)
-					right.currentSourceLine = sourceLine
+					pair.right.drawLine(true)
+					pair.right.currentSourceLine = sourceLine
 				}
 			}
 		}
-		drawLine(left)
-		drawLine(right)
 
+		return pair.combine()
+	},
+
+	splitPatch(patch) {
+		let parsedPatch = diff.parsePatch(patch)
 		let output = []
 
-		for(let i = 0; i < left.outputLines.length; i++) {
-			output.push(left.outputLines[i] + right.outputLines[i])
+		for(let patch of parsedPatch) {
+
+			let pair = new Pair(
+				new Side({ currentSourceLine: patch.oldFileName }),
+				new Side({ currentSourceLine: patch.newFileName })
+			)
+
+			pair.drawLines()
+			pair.left.currentSourceLine = ''
+			pair.right.currentSourceLine = ''
+			output.push(pair.combine())
+
+			for(let hunk of patch.hunks) {
+
+				let pair = new Pair(
+					new SideLines({
+						currentLineNumber: hunk.oldStart,
+						lineLength: hunk.oldStart + hunk.oldLines,
+						changedLineColor: chalk.bgRgb(70, 0, 0),
+						changedLineNumberColor: chalk.bgRgb(50, 0, 0)
+					}),
+					new SideLines({
+						currentLineNumber: hunk.newStart,
+						lineLength: hunk.newStart + hunk.newLines,
+						changedLineColor: chalk.bgRgb(0, 70, 0),
+						changedLineNumberColor: chalk.bgRgb(0, 50, 0)
+					})
+				)
+
+				for( let line of hunk.lines ) {
+
+					let symbol = line[0]
+					line = line.slice(1).replace(/\t/g, '    ')
+
+					if(symbol === ' ') {
+						pair.align()
+						pair.left.currentSourceLine = line
+						pair.right.currentSourceLine = line
+						pair.left.drawLine()
+						pair.right.drawLine()
+					}
+
+					if(symbol === '-') {
+						pair.left.currentSourceLine = line
+						pair.left.drawLine(true)
+					}
+
+					if(symbol === '+') {
+						pair.right.currentSourceLine = line
+						pair.right.drawLine(true)
+					}
+				} 
+
+				output.push(pair.combine())
+				output.push('')
+
+			}
+
 		}
 
 		return output.join('\n')
-
-	},
+	}
 }

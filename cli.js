@@ -1,9 +1,11 @@
 #! /usr/bin/env node
 
-const { splitdiff } = require(`./index`)
+const { splitDiffStrings, splitPatch } = require(`./index`)
 const cli = require(`commander`)
 
 const { readFileSync } = require('fs')
+
+
 
 async function main() {
 
@@ -15,6 +17,7 @@ async function main() {
 			console.log(`  Example:`)
 			console.log(``)
 			console.log(`    $ splitdiff file1 file2`)
+			console.log(`    $ git diff file1 file2 | splitdiff`)
 			console.log(``)
 		})
 		.parse(process.argv)
@@ -22,20 +25,37 @@ async function main() {
 	try {
 
 		if (cli.args.length < 2) {
-			throw `need two files`
-		}
 
-		console.log(
-			splitdiff(
-				cli.args[0] + `\n\n` + readFileSync(cli.args[0], { encoding: `utf8` }),
-				cli.args[1] + `\n\n` + readFileSync(cli.args[1], { encoding: `utf8` }),
-				{ 
-					diffType: `diffLines`,
-					lineNumbers: true,
-					lineOffset: 2
+			process.stdin.setEncoding('utf8')
+
+			let data = ''
+
+			process.stdin.on('readable', () => {
+				const chunk = process.stdin.read()
+				if (chunk !== null) {
+					data += chunk
 				}
+			})
+			process.stdin.on('end', () => {
+				if(data !== '') {
+					console.log(splitPatch(data, {}))
+				}
+			})
+
+		} 
+		else {
+			console.log(
+				splitDiffStrings(
+					cli.args[0] + `\n\n` + readFileSync(cli.args[0], { encoding: `utf8` }),
+					cli.args[1] + `\n\n` + readFileSync(cli.args[1], { encoding: `utf8` }),
+					{ 
+						diffType: `diffLines`,
+						lineNumbers: true,
+						lineOffset: 2
+					}
+				)
 			)
-		)
+		}
 
 	} catch (error) {
 		console.log(`splitdiff:`, error)
