@@ -4,7 +4,7 @@ Pretty split (side-by-side) diffs in your terminal!
 
 ## install
 
-`npm i splitdiff`
+`npm i -g splitdiff`
 
 ## usage
 
