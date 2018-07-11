@@ -2,11 +2,11 @@
 
 Pretty split (side-by-side) diffs in your terminal!
 
-##install
+## install
 
 `npm i splitdiff`
 
-##usage
+## usage
 
 Can be used via CLI or API.  Two different patterns: 
 
