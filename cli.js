@@ -13,7 +13,7 @@ cli
 		console.log(`  Example:`)
 		console.log(``)
 		console.log(`    $ splitdiff file1 file2`)
-		console.log(`    $ git diff --no-pager file1 file2 | splitdiff`)
+		console.log(`    $ git --no-pager diff file1 file2 | splitdiff`)
 		console.log(``)
 	})
 	.parse(process.argv)

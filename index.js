@@ -104,8 +104,6 @@ class SideLines extends Side {
 	}
 	drawLine(changed = false) {
 
-		this.currentLineNumber++
-
 		if(this.sanctioned.length > 0) {
 			if(!this.sanctioned[this.currentLineNumber]) return
 
@@ -137,6 +135,8 @@ class SideLines extends Side {
 			outputLine = lineNumberBackground(repeatChar(' ', this.gutterWidth))
 
 		}
+
+		this.currentLineNumber++
 	}
 }
 
