@@ -2,9 +2,15 @@ const diff = require(`diff`)
 const chalk = require(`chalk`)
 const stripAnsi = require(`strip-ansi`)
 
-const terminalWidth = (process.stdout && process.stdout.columns) ? process.stdout.columns : 80
-const colwidth = Math.floor((terminalWidth) / 2)
+let terminalWidth = (process.stdout && process.stdout.columns) ? process.stdout.columns : 80
+let colwidth
 const bgColor = chalk.bgRgb(15, 15, 15)
+
+function updateColWidth(){
+	colwidth = Math.floor((terminalWidth) / 2)
+}
+
+updateColWidth()
 
 function repeatChar(char, times) {
 	let ret = ''
@@ -247,9 +253,14 @@ module.exports = {
 		return pair.combine()
 	},
 
-	splitPatch(patch) {
+	splitPatch(patch, options) {
 		let parsedPatch = diff.parsePatch(patch)
 		let output = []
+
+		if(options.columns){
+			terminalWidth = options.columns
+			updateColWidth()
+		}
 
 		for(let patch of parsedPatch) {
 
@@ -300,7 +311,7 @@ module.exports = {
 						pair.right.currentSourceLine = line
 						pair.right.drawLine(true)
 					}
-				} 
+				}
 
 				output.push(pair.combine())
 				output.push('')
