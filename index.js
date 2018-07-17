@@ -90,9 +90,9 @@ class Pair {
 		this.left.padLines(n)
 		this.right.padLines(n)
 	}
-	parseCurrentSourceLines() {
-		this.left.parseCurrentSourceLine()
-		this.right.parseCurrentSourceLine()
+	addLines(rawLineLeft, rawLineRight) {
+		this.left.addLine(rawLineLeft)
+		this.right.addLine(rawLineRight)
 	}
 	combine() {
 		if(this.too_large){
@@ -102,7 +102,6 @@ class Pair {
 				 add --show-large-hunks to your command for cli use --
 			`.replace(/[\n\t]*/gm, ''), terminalWidth)
 		}
-		// this.parseCurrentSourceLines()
 
 		if(this.left.sanctioned && this.left.sanctioned.length > 0 && !this.left.sanctioned[this.left.lineLength]) this.left.ellipses()
 		if(this.right.sanctioned && this.right.sanctioned.length > 0 && !this.right.sanctioned[this.right.lineLength]) this.right.ellipses()
@@ -117,9 +116,8 @@ class Pair {
 }
 
 class Side {
-	constructor(args) {
+	constructor(args = {}) {
 		Object.assign(this, Object.assign({
-			currentSourceLine: '',
 			outputLines: []
 		}, args))
 		this.gutterWidth = 0
@@ -131,12 +129,12 @@ class Side {
 	padLines(number) {
 		while(number-- > 0) this.outputLines.push(bgColor(repeatChar(' ', colwidth)))
 	}
-	parseCurrentSourceLine() {
+	addLine(rawLine) {
 		Array.prototype.push.apply(
 			this.outputLines,
 			colorArray(
 				rightPadArray(
-					wrapString(this.currentSourceLine, this.wrapWidth),
+					wrapString(rawLine, this.wrapWidth),
 					this.wrapWidth
 				),
 				bgColor
@@ -170,7 +168,7 @@ class SideLines extends Side {
 
 		return gutter
 	}
-	parseCurrentSourceLine(changed = false) {
+	addLine(rawLine, changed = false) {
 		if(this.sanctioned.length > 0) {
 			if(!this.sanctioned[this.currentLineNumber]) return
 
@@ -182,8 +180,8 @@ class SideLines extends Side {
 		// figure out what color we'll be using for the background
 		const lineBackground = this.currentLineNumber ? (changed ? this.changedLineColor : chalk.bgRgb(25, 25, 25)) : bgColor
 
-		// get the new lines from the raw currentSourceLine
-		const lines = formatHunkOutput(this.currentSourceLine, this.wrapWidth, lineBackground)
+		// get the new lines from rawLine
+		const lines = formatHunkOutput(rawLine, this.wrapWidth, lineBackground)
 
 		// add our parsed lines to the entire output stored.
 		Array.prototype.push.apply(this.outputLines, addGutterToLines(this.gutter(changed), lines))
@@ -215,7 +213,6 @@ module.exports = {
 				changedLineNumberColor: chalk.bgRgb(0, 50, 0),
 			})
 		)
-
 
 		if(truncate) {
 			let curLineLeft = -lineOffset
@@ -264,33 +261,26 @@ module.exports = {
 			if(!e.removed && !e.added) {
 
 				pair.align()
-
-				pair.left.currentSourceLine += firstChars
-				pair.right.currentSourceLine += firstChars
+				pair.addLines(firstChars, firstChars)
 
 				for(let sourceLine of sourceLines) {
-					pair.parseCurrentSourceLines()
-
-					pair.left.currentSourceLine = sourceLine
-					pair.right.currentSourceLine = sourceLine
+					pair.addLines(sourceLine, sourceLine)
 				}
 			}
 
 			if(e.removed) {
-				pair.left.currentSourceLine += firstChars
+				pair.left.addLine(firstChars, true)
 
 				for(let sourceLine of sourceLines) {
-					pair.left.parseCurrentSourceLine(true)
-					pair.left.currentSourceLine = sourceLine
+					pair.left.addLine(sourceLine, true)
 				}
 			}
 
 			if(e.added) {
-				pair.right.currentSourceLine += firstChars
+				pair.right.addLine(firstChars, true)
 
 				for(let sourceLine of sourceLines) {
-					pair.right.parseCurrentSourceLine(true)
-					pair.right.currentSourceLine = sourceLine
+					pair.right.addLine(sourceLine, true)
 				}
 			}
 		}
@@ -309,11 +299,11 @@ module.exports = {
 
 		for(let patch of parsedPatch) {
 			let pair = new Pair(
-				new Side({ currentSourceLine: patch.oldFileName }),
-				new Side({ currentSourceLine: patch.newFileName })
+				new Side(),
+				new Side()
 			)
 
-			pair.parseCurrentSourceLines()
+			pair.addLines(patch.oldFileName, patch.newFileName)
 			pair.padLines(1)
 			output.push(pair.combine())
 
@@ -350,19 +340,15 @@ module.exports = {
 
 					if(symbol === ' ') {
 						pair.align()
-						pair.left.currentSourceLine = line
-						pair.right.currentSourceLine = line
-						pair.parseCurrentSourceLines()
+						pair.addLines(line, line)
 					}
 
 					if(symbol === '-') {
-						pair.left.currentSourceLine = line
-						pair.left.parseCurrentSourceLine(true)
+						pair.left.addLine(line, true)
 					}
 
 					if(symbol === '+') {
-						pair.right.currentSourceLine = line
-						pair.right.parseCurrentSourceLine(true)
+						pair.right.addLine(line, true)
 					}
 				}
 
