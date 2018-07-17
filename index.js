@@ -153,6 +153,7 @@ class HunkContent extends DiffOutput {
 	constructor(args) {
 		super(args)
 		Object.assign(this, Object.assign({
+			lineNumbers: true,
 			lineLength: 0,
 			currentLineNumber: 0,
 			changedLineColor: chalk.bgRgb(70, 70, 70),
@@ -160,8 +161,8 @@ class HunkContent extends DiffOutput {
 			sanctioned: []
 		}, args))
 		this.lineNumberWidth = String(this.lineLength).length
-		this.gutterWidth = this.lineNumberWidth + 4
-		this.wrapWidth = colwidth - this.gutterWidth
+		this.gutterWidth = this.lineNumbers ? this.lineNumberWidth + 4 : 0
+		this.wrapWidth = colwidth - (this.lineNumbers ? this.gutterWidth : 0)
 	}
 	gutter(changed = false){
 		const gutterColor = changed ? chalk.white : chalk.grey
@@ -190,7 +191,11 @@ class HunkContent extends DiffOutput {
 		const lines = formatHunkOutput(rawLine, this.wrapWidth, lineBackground)
 
 		// add our parsed lines to the entire output stored.
-		Array.prototype.push.apply(this.outputLines, addGutterToLines(this.gutter(changed), lines))
+		if(this.lineNumbers){
+			Array.prototype.push.apply(this.outputLines, addGutterToLines(this.gutter(changed), lines))
+		} else {
+			Array.prototype.push.apply(this.outputLines, lines)
+		}
 
 		this.currentLineNumber++
 	}
