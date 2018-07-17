@@ -115,7 +115,7 @@ class Pair {
 	}
 }
 
-class Side {
+class DiffOutput {
 	constructor(args = {}) {
 		Object.assign(this, Object.assign({
 			outputLines: []
@@ -128,6 +128,12 @@ class Side {
 	}
 	padLines(number) {
 		while(number-- > 0) this.outputLines.push(bgColor(repeatChar(' ', colwidth)))
+	}
+}
+
+class HunkHeader extends DiffOutput {
+	constructor(args = {}) {
+		super(args)
 	}
 	addLine(rawLine) {
 		Array.prototype.push.apply(
@@ -143,9 +149,9 @@ class Side {
 	}
 }
 
-class SideLines extends Side {
+class HunkContent extends DiffOutput {
 	constructor(args) {
-		super()
+		super(args)
 		Object.assign(this, Object.assign({
 			lineLength: 0,
 			currentLineNumber: 0,
@@ -200,13 +206,13 @@ module.exports = {
 		let theDiff = diff[diffType](one, two)
 
 		let pair = new Pair(
-			new SideLines({
+			new HunkContent({
 				lineLength: one.split('\n').length,
 				currentLineNumber: -lineOffset,
 				changedLineColor: chalk.bgRgb(70, 0, 0),
 				changedLineNumberColor: chalk.bgRgb(50, 0, 0)
 			}),
-			new SideLines({
+			new HunkContent({
 				lineLength: two.split('\n').length,
 				currentLineNumber: -lineOffset,
 				changedLineColor: chalk.bgRgb(0, 70, 0),
@@ -299,8 +305,8 @@ module.exports = {
 
 		for(let patch of parsedPatch) {
 			let pair = new Pair(
-				new Side(),
-				new Side()
+				new HunkHeader(),
+				new HunkHeader()
 			)
 
 			pair.addLines(patch.oldFileName, patch.newFileName)
@@ -311,13 +317,13 @@ module.exports = {
 				let hunkSize = 0
 
 				let pair = new Pair(
-					new SideLines({
+					new HunkContent({
 						currentLineNumber: hunk.oldStart,
 						lineLength: hunk.oldStart + hunk.oldLines,
 						changedLineColor: chalk.bgRgb(70, 0, 0),
 						changedLineNumberColor: chalk.bgRgb(50, 0, 0)
 					}),
-					new SideLines({
+					new HunkContent({
 						currentLineNumber: hunk.newStart,
 						lineLength: hunk.newStart + hunk.newLines,
 						changedLineColor: chalk.bgRgb(0, 70, 0),
