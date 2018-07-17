@@ -56,6 +56,21 @@ const outputWrappedWithBGRightPad = (str, width) => {
 	)
 }
 
+const formatHunkOutput = (str, width, color) => {
+	return colorArray(
+		rightPadArray(
+			wrapString(
+				str,
+				width
+			),
+			width
+		),
+		color
+	)
+}
+
+const addGutterToLines = (gutter, lines) => lines.map((line, i) => `${gutter[i === 0 ? 0 : 1]}${line}`)
+
 class Pair {
 	constructor(left, right) {
 		this.left = left
@@ -75,9 +90,9 @@ class Pair {
 		this.left.padLines(n)
 		this.right.padLines(n)
 	}
-	drawLines() {
-		this.left.drawLine()
-		this.right.drawLine()
+	parseCurrentSourceLines() {
+		this.left.parseCurrentSourceLine()
+		this.right.parseCurrentSourceLine()
 	}
 	combine() {
 		if(this.too_large){
@@ -87,7 +102,7 @@ class Pair {
 				 add --show-large-hunks to your command for cli use --
 			`.replace(/[\n\t]*/gm, ''), terminalWidth)
 		}
-		// this.drawLines()
+		// this.parseCurrentSourceLines()
 
 		if(this.left.sanctioned && this.left.sanctioned.length > 0 && !this.left.sanctioned[this.left.lineLength]) this.left.ellipses()
 		if(this.right.sanctioned && this.right.sanctioned.length > 0 && !this.right.sanctioned[this.right.lineLength]) this.right.ellipses()
@@ -116,24 +131,17 @@ class Side {
 	padLines(number) {
 		while(number-- > 0) this.outputLines.push(bgColor(repeatChar(' ', colwidth)))
 	}
-	drawLine() {
-
-		let sourceLine = this.currentSourceLine
-		let emptyLine = (sourceLine.length === 0)
-		let outputLine = ''
-
-		while(stripAnsi(sourceLine).length > 0 || emptyLine === true) {
-
-			emptyLine = false
-			let ansiDifference = (sourceLine.length - stripAnsi(sourceLine).length) / 2
-
-			outputLine += bgColor(rightPad(sourceLine.slice(0, this.wrapWidth + ansiDifference), this.wrapWidth))
-			this.outputLines.push(outputLine)
-
-			sourceLine = sourceLine.slice(this.wrapWidth + ansiDifference)
-			outputLine = ''
-
-		}
+	parseCurrentSourceLine() {
+		Array.prototype.push.apply(
+			this.outputLines,
+			colorArray(
+				rightPadArray(
+					wrapString(this.currentSourceLine, this.wrapWidth),
+					this.wrapWidth
+				),
+				bgColor
+			)
+		)
 	}
 }
 
@@ -151,8 +159,18 @@ class SideLines extends Side {
 		this.gutterWidth = this.lineNumberWidth + 4
 		this.wrapWidth = colwidth - this.gutterWidth
 	}
-	drawLine(changed = false) {
+	gutter(changed = false){
+		const gutterColor = changed ? chalk.white : chalk.grey
+		const gutterBackground = this.currentLineNumber ? (changed ? this.changedLineNumberColor : bgColor) : bgColor
 
+		const gutter = [
+			gutterBackground('  ' + leftPad(gutterColor(String(this.currentLineNumber)), this.lineNumberWidth) + '  '),
+			gutterBackground(repeatChar(' ', this.gutterWidth))
+		]
+
+		return gutter
+	}
+	parseCurrentSourceLine(changed = false) {
 		if(this.sanctioned.length > 0) {
 			if(!this.sanctioned[this.currentLineNumber]) return
 
@@ -161,29 +179,14 @@ class SideLines extends Side {
 			}
 		}
 
-		let sourceLine = this.currentSourceLine
-		let emptyLine = (sourceLine.length === 0)
-		let lineNumber = this.currentLineNumber > 0 ? this.currentLineNumber : ''
+		// figure out what color we'll be using for the background
+		const lineBackground = this.currentLineNumber ? (changed ? this.changedLineColor : chalk.bgRgb(25, 25, 25)) : bgColor
 
-		let lineNumberBackground = lineNumber ? (changed ? this.changedLineNumberColor : bgColor) : bgColor
-		let lineBackground = lineNumber ? (changed ? this.changedLineColor : chalk.bgRgb(25, 25, 25)) : bgColor
-		let lineColor = changed ? chalk.white : chalk.grey
+		// get the new lines from the raw currentSourceLine
+		const lines = formatHunkOutput(this.currentSourceLine, this.wrapWidth, lineBackground)
 
-		let outputLine = lineNumberBackground('  ' + leftPad(lineColor(String(lineNumber)), this.lineNumberWidth) + '  ')
-
-		while(stripAnsi(sourceLine).length > 0 || emptyLine === true) {
-
-			emptyLine = false
-			let ansiDifference = (sourceLine.length - stripAnsi(sourceLine).length) / 2
-
-			outputLine += lineBackground(rightPad(sourceLine.slice(0, this.wrapWidth + ansiDifference), this.wrapWidth))
-
-			this.outputLines.push(outputLine)
-
-			sourceLine = sourceLine.slice(this.wrapWidth + ansiDifference)
-			outputLine = lineNumberBackground(repeatChar(' ', this.gutterWidth))
-
-		}
+		// add our parsed lines to the entire output stored.
+		Array.prototype.push.apply(this.outputLines, addGutterToLines(this.gutter(changed), lines))
 
 		this.currentLineNumber++
 	}
@@ -266,8 +269,7 @@ module.exports = {
 				pair.right.currentSourceLine += firstChars
 
 				for(let sourceLine of sourceLines) {
-					pair.left.drawLine()
-					pair.right.drawLine()
+					pair.parseCurrentSourceLines()
 
 					pair.left.currentSourceLine = sourceLine
 					pair.right.currentSourceLine = sourceLine
@@ -278,7 +280,7 @@ module.exports = {
 				pair.left.currentSourceLine += firstChars
 
 				for(let sourceLine of sourceLines) {
-					pair.left.drawLine(true)
+					pair.left.parseCurrentSourceLine(true)
 					pair.left.currentSourceLine = sourceLine
 				}
 			}
@@ -287,7 +289,7 @@ module.exports = {
 				pair.right.currentSourceLine += firstChars
 
 				for(let sourceLine of sourceLines) {
-					pair.right.drawLine(true)
+					pair.right.parseCurrentSourceLine(true)
 					pair.right.currentSourceLine = sourceLine
 				}
 			}
@@ -311,7 +313,7 @@ module.exports = {
 				new Side({ currentSourceLine: patch.newFileName })
 			)
 
-			pair.drawLines()
+			pair.parseCurrentSourceLines()
 			pair.padLines(1)
 			output.push(pair.combine())
 
@@ -350,17 +352,17 @@ module.exports = {
 						pair.align()
 						pair.left.currentSourceLine = line
 						pair.right.currentSourceLine = line
-						pair.drawLines()
+						pair.parseCurrentSourceLines()
 					}
 
 					if(symbol === '-') {
 						pair.left.currentSourceLine = line
-						pair.left.drawLine(true)
+						pair.left.parseCurrentSourceLine(true)
 					}
 
 					if(symbol === '+') {
 						pair.right.currentSourceLine = line
-						pair.right.drawLine(true)
+						pair.right.parseCurrentSourceLine(true)
 					}
 				}
 
