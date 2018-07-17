@@ -42,12 +42,12 @@ const wrapString = (str, width) => {
 
 const outputArray = (arr) => arr.join('\n')
 
-const outputWrappedWithBGRightPadArr = (str, width) => {
+const outputWrappedWithBGRightPad = (str, width) => {
 	return outputArray(
 		colorArray(
 			rightPadArray(
 				wrapString(
-					str.replace(/[\n\t]*/gm, ''), width
+					str, width
 				),
 				width
 			),
@@ -81,11 +81,11 @@ class Pair {
 	}
 	combine() {
 		if(this.too_large){
-			return outputWrappedWithBGRightPadArr(`
+			return outputWrappedWithBGRightPad(`
 				-- This patch section is too large to be displayed with
 				 this utility by default. If you want to show this section,
 				 add --show-large-hunks to your command for cli use --
-			`, terminalWidth)
+			`.replace(/[\n\t]*/gm, ''), terminalWidth)
 		}
 		// this.drawLines()
 
