@@ -11,6 +11,7 @@ cli
 	.option('--color', "Force color output ON")
 	.option('--no-color', "Force color output OFF")
 	.option('--columns [columns]', "Specify width output override.")
+	.option('--show-large-hunks', "Include large patch sections (hunks) in the output. DANGER: if it's huge, it'll take a long time!")
 	.on(`--help`, () => {
 		console.log(``)
 		console.log(`  Example:`)
@@ -37,7 +38,9 @@ try {
 		})
 		process.stdin.on('end', () => {
 			if(data !== '') {
-				let opts = {}
+				let opts = {
+					showLargeHunks: cli.showLargeHunks || false
+				}
 
 				if(cli.columns){
 					opts.columns = cli.columns

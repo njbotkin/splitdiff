@@ -5,6 +5,7 @@ const stripAnsi = require(`strip-ansi`)
 let terminalWidth = (process.stdout && process.stdout.columns) ? process.stdout.columns : 80
 let colwidth
 const bgColor = chalk.bgRgb(15, 15, 15)
+const hunkSizeLimit = 150000
 
 function updateColWidth(){
 	colwidth = Math.floor((terminalWidth) / 2)
@@ -21,10 +22,45 @@ function repeatChar(char, times) {
 const leftPad = (str, width) => repeatChar(' ', width - stripAnsi(str).length) + str
 const rightPad = (str, width) => str + repeatChar(' ', width - stripAnsi(str).length)
 
+const leftPadArray = (arr, width) => arr.map(str => leftPad(str, width))
+const rightPadArray = (arr, width) => arr.map(str => rightPad(str, width))
+
+const colorArray = (arr, color) => arr.map(str => color(str))
+
+const wrapString = (str, width) => {
+	if(str === ''){ return [''] }
+
+	width = Number(width)
+	let output = []
+
+	for(let index = 0; index < str.length; index += width){
+		output.push(str.slice(index, index + width))
+	}
+
+	return output
+}
+
+const outputArray = (arr) => arr.join('\n')
+
+const outputWrappedWithBGRightPadArr = (str, width) => {
+	return outputArray(
+		colorArray(
+			rightPadArray(
+				wrapString(
+					str.replace(/[\n\t]*/gm, ''), width
+				),
+				width
+			),
+			bgColor
+		)
+	)
+}
+
 class Pair {
 	constructor(left, right) {
 		this.left = left
 		this.right = right
+		this.too_large = false
 	}
 	align() {
 		let misalignmentDelta = this.left.outputLines.length - this.right.outputLines.length
@@ -44,6 +80,13 @@ class Pair {
 		this.right.drawLine()
 	}
 	combine() {
+		if(this.too_large){
+			return outputWrappedWithBGRightPadArr(`
+				-- This patch section is too large to be displayed with
+				 this utility by default. If you want to show this section,
+				 add --show-large-hunks to your command for cli use --
+			`, terminalWidth)
+		}
 		// this.drawLines()
 
 		if(this.left.sanctioned && this.left.sanctioned.length > 0 && !this.left.sanctioned[this.left.lineLength]) this.left.ellipses()
@@ -263,7 +306,6 @@ module.exports = {
 		}
 
 		for(let patch of parsedPatch) {
-
 			let pair = new Pair(
 				new Side({ currentSourceLine: patch.oldFileName }),
 				new Side({ currentSourceLine: patch.newFileName })
@@ -274,6 +316,7 @@ module.exports = {
 			output.push(pair.combine())
 
 			for(let hunk of patch.hunks) {
+				let hunkSize = 0
 
 				let pair = new Pair(
 					new SideLines({
@@ -291,6 +334,14 @@ module.exports = {
 				)
 
 				for( let line of hunk.lines ) {
+					if(!options.showLargeHunks){
+						hunkSize += line.length
+
+						if(hunkSize > hunkSizeLimit){
+							pair.too_large = true
+							break
+						}
+					}
 
 					let symbol = line[0]
 					line = line.slice(1).replace(/\t/g, '    ')
@@ -315,9 +366,7 @@ module.exports = {
 
 				output.push(pair.combine())
 				output.push('')
-
 			}
-
 		}
 
 		return output.join('\n')
