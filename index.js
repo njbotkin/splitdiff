@@ -69,8 +69,6 @@ const formatHunkOutput = (str, width, color) => {
 	)
 }
 
-const addGutterToLines = (gutter, lines) => lines.map((line, i) => `${gutter[i === 0 ? 0 : 1]}${line}`)
-
 class Pair {
 	constructor(left, right) {
 		this.left = left
@@ -167,7 +165,7 @@ class HunkContent extends DiffOutput {
 			this.wrapWidth = colwidth - this.gutterWidth
 		}
 	}
-	gutter(changed = false){
+	addGutterToLines(lines, changed = false){
 		const gutterColor = changed ? chalk.white : chalk.grey
 		const gutterBackground = this.currentLineNumber ? (changed ? this.changedLineNumberColor : bgColor) : bgColor
 
@@ -176,7 +174,7 @@ class HunkContent extends DiffOutput {
 			gutterBackground(repeatChar(' ', this.gutterWidth))
 		]
 
-		return gutter
+		return lines.map((line, i) => `${gutter[i === 0 ? 0 : 1]}${line}`)
 	}
 	addLine(rawLine, changed = false) {
 		if(this.sanctioned.length > 0) {
@@ -195,7 +193,7 @@ class HunkContent extends DiffOutput {
 
 		// add our parsed lines to the entire output stored.
 		if(this.lineNumbers){
-			Array.prototype.push.apply(this.outputLines, addGutterToLines(this.gutter(changed), lines))
+			Array.prototype.push.apply(this.outputLines, this.addGutterToLines(lines, changed))
 		} else {
 			Array.prototype.push.apply(this.outputLines, lines)
 		}
