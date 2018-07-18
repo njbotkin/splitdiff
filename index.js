@@ -115,9 +115,10 @@ class Pair {
 
 class DiffOutput {
 	constructor(args = {}) {
-		Object.assign(this, Object.assign({
+		Object.assign(this, {
 			outputLines: []
-		}, args))
+		}, args)
+
 		this.gutterWidth = 0
 		this.wrapWidth = colwidth
 	}
@@ -130,9 +131,6 @@ class DiffOutput {
 }
 
 class HunkHeader extends DiffOutput {
-	constructor(args = {}) {
-		super(args)
-	}
 	addLine(rawLine) {
 		Array.prototype.push.apply(
 			this.outputLines,
@@ -148,16 +146,16 @@ class HunkHeader extends DiffOutput {
 }
 
 class HunkContent extends DiffOutput {
-	constructor(args) {
+	constructor(args = {}) {
 		super(args)
-		Object.assign(this, Object.assign({
+		Object.assign(this, {
 			lineNumbers: true,
 			lineLength: 0,
 			currentLineNumber: 0,
 			changedLineColor: chalk.bgRgb(70, 70, 70),
 			changedLineNumberColor: chalk.bgRgb(50, 50, 50),
 			sanctioned: []
-		}, args))
+		}, args)
 
 		if(this.lineNumbers){
 			this.lineNumberWidth = String(this.lineLength).length
