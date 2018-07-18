@@ -69,8 +69,6 @@ const formatHunkOutput = (str, width, color) => {
 	)
 }
 
-const addGutterToLines = (gutter, lines) => lines.map((line, i) => `${gutter[i === 0 ? 0 : 1]}${line}`)
-
 class Pair {
 	constructor(left, right) {
 		this.left = left
@@ -117,9 +115,10 @@ class Pair {
 
 class DiffOutput {
 	constructor(args = {}) {
-		Object.assign(this, Object.assign({
+		Object.assign(this, {
 			outputLines: []
-		}, args))
+		}, args)
+
 		this.gutterWidth = 0
 		this.wrapWidth = colwidth
 	}
@@ -132,9 +131,6 @@ class DiffOutput {
 }
 
 class HunkHeader extends DiffOutput {
-	constructor(args = {}) {
-		super(args)
-	}
 	addLine(rawLine) {
 		Array.prototype.push.apply(
 			this.outputLines,
@@ -150,20 +146,24 @@ class HunkHeader extends DiffOutput {
 }
 
 class HunkContent extends DiffOutput {
-	constructor(args) {
+	constructor(args = {}) {
 		super(args)
-		Object.assign(this, Object.assign({
+		Object.assign(this, {
+			lineNumbers: true,
 			lineLength: 0,
 			currentLineNumber: 0,
 			changedLineColor: chalk.bgRgb(70, 70, 70),
 			changedLineNumberColor: chalk.bgRgb(50, 50, 50),
 			sanctioned: []
-		}, args))
-		this.lineNumberWidth = String(this.lineLength).length
-		this.gutterWidth = this.lineNumberWidth + 4
-		this.wrapWidth = colwidth - this.gutterWidth
+		}, args)
+
+		if(this.lineNumbers){
+			this.lineNumberWidth = String(this.lineLength).length
+			this.gutterWidth = this.lineNumberWidth + 4
+			this.wrapWidth = colwidth - this.gutterWidth
+		}
 	}
-	gutter(changed = false){
+	addGutterToLines(lines, changed = false){
 		const gutterColor = changed ? chalk.white : chalk.grey
 		const gutterBackground = this.currentLineNumber ? (changed ? this.changedLineNumberColor : bgColor) : bgColor
 
@@ -172,7 +172,7 @@ class HunkContent extends DiffOutput {
 			gutterBackground(repeatChar(' ', this.gutterWidth))
 		]
 
-		return gutter
+		return lines.map((line, i) => `${gutter[i === 0 ? 0 : 1]}${line}`)
 	}
 	addLine(rawLine, changed = false) {
 		if(this.sanctioned.length > 0) {
@@ -190,7 +190,11 @@ class HunkContent extends DiffOutput {
 		const lines = formatHunkOutput(rawLine, this.wrapWidth, lineBackground)
 
 		// add our parsed lines to the entire output stored.
-		Array.prototype.push.apply(this.outputLines, addGutterToLines(this.gutter(changed), lines))
+		if(this.lineNumbers){
+			Array.prototype.push.apply(this.outputLines, this.addGutterToLines(lines, changed))
+		} else {
+			Array.prototype.push.apply(this.outputLines, lines)
+		}
 
 		this.currentLineNumber++
 	}
