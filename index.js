@@ -160,9 +160,12 @@ class HunkContent extends DiffOutput {
 			changedLineNumberColor: chalk.bgRgb(50, 50, 50),
 			sanctioned: []
 		}, args))
-		this.lineNumberWidth = String(this.lineLength).length
-		this.gutterWidth = this.lineNumbers ? this.lineNumberWidth + 4 : 0
-		this.wrapWidth = colwidth - (this.lineNumbers ? this.gutterWidth : 0)
+
+		if(this.lineNumbers){
+			this.lineNumberWidth = String(this.lineLength).length
+			this.gutterWidth = this.lineNumberWidth + 4
+			this.wrapWidth = colwidth - this.gutterWidth
+		}
 	}
 	gutter(changed = false){
 		const gutterColor = changed ? chalk.white : chalk.grey
