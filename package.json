@@ -1,6 +1,6 @@
 {
   "name": "splitdiff",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Pretty line-level side-by-side (split) diffs in the terminal",
   "repository": {
     "type": "git",
