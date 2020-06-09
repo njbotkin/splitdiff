@@ -298,7 +298,7 @@ module.exports = {
 		return pair.combine()
 	},
 
-	splitPatch(patch, options) {
+	splitPatch(patch, options = {}) {
 		let parsedPatch = diff.parsePatch(patch)
 		let output = []
 
@@ -308,6 +308,9 @@ module.exports = {
 		}
 
 		for(let patch of parsedPatch) {
+			if (!patch.oldFileName || !patch.newFileName) {
+				continue
+			}
 			let pair = new Pair(
 				new HunkHeader(),
 				new HunkHeader()
